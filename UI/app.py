@@ -34,7 +34,7 @@ st.markdown(
 # CONFIG
 # ==================================================
 st.set_page_config(page_title="Outbreak Risk Engine", layout="wide")
-st.title("🦠 WHO Disease Outbreak Risk Intelligence Engine")
+st.title("🦠 Disease Outbreak Risk Intelligence Engine")
 
 
 # ==================================================
@@ -265,7 +265,7 @@ Provide:
             )
 
             response = client.chat.completions.create(
-                model="meta/llama-3.1-70b-instruct",
+                model="openai/gpt-oss-20b",
                 messages=[
                     {"role": "system", "content": "You are a WHO outbreak expert."},
                     {"role": "user", "content": prompt}
