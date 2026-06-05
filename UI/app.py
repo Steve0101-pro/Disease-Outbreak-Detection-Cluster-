@@ -58,13 +58,13 @@ FEATURES = [
 @st.cache_resource
 def load_models():
     models = {
-        "KMeans": joblib.load("Climate_Diseases_kmeans.pkl"),
-        "GMM": joblib.load("Climate_Diseases_model.pkl"),
+        "KMeans": joblib.load("UI/Climate_Diseases_kmeans.pkl"),
+        "GMM": joblib.load("UI/Climate_Diseases_model.pkl"),
     }
 
     # optional DBSCAN (if exists)
     try:
-        models["DBSCAN"] = joblib.load("dbscan_model.pkl")
+        models["DBSCAN"] = joblib.load("UI/dbscan_model.pkl")
     except:
         pass
 
@@ -73,7 +73,7 @@ def load_models():
 
 @st.cache_resource
 def load_scaler():
-    return joblib.load("Climate_Diseases_scaler.pkl")
+    return joblib.load("UI/Climate_Diseases_scaler.pkl")
 
 models = load_models()
 scaler = load_scaler()
