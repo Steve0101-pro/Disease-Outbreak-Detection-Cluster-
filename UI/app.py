@@ -7,6 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from openai import OpenAI
+from sklearn.decomposition import PCA
 
 load_dotenv()
 
@@ -64,7 +65,7 @@ def load_models():
 
     # optional DBSCAN (if exists)
     try:
-        models["DBSCAN"] = joblib.load("UI/dbscan_model.pkl")
+        models["DBSCAN"] = joblib.load("UI/Climate_Diseases_dbscan.pkl")
     except:
         pass
 
@@ -75,8 +76,32 @@ def load_models():
 def load_scaler():
     return joblib.load("UI/Climate_Diseases_scaler.pkl")
 
+@st.cache_resource
+def load_training_data_and_pca():
+    """Load training data and compute PCA for visualization"""
+    try:
+        df = pd.read_csv("climate_disease_dataset.csv")
+        
+        # Compute derived features (same as in Notebook)
+        df["total_cases"] = df["malaria_cases"] + df["dengue_cases"]
+        df["month_sin"] = np.sin(2 * np.pi * df["month"] / 12)
+        df["month_cos"] = np.cos(2 * np.pi * df["month"] / 12)
+        
+        # Prepare features
+        X_scaled = scaler.transform(df[FEATURES])
+        
+        # Compute PCA
+        pca = PCA(n_components=2)
+        X_pca = pca.fit_transform(X_scaled)
+        
+        return df, X_pca, pca
+    except Exception as e:
+        st.error(f"Error loading training data: {e}")
+        return None, None, None
+
 models = load_models()
 scaler = load_scaler()
+df_train, X_pca, pca = load_training_data_and_pca()
 
 # ==================================================
 # SIDEBAR MODEL SELECTOR
@@ -229,7 +254,7 @@ with tab1:
 # ==================================================
 with tab2:
 
-    st.subheader("🧠 WHO AI Risk Report")
+    st.subheader("🧠 AI Risk Report")
 
     if "result" not in st.session_state:
         st.warning("Run risk engine first")
@@ -238,7 +263,7 @@ with tab2:
         r = st.session_state.result
 
         prompt = f"""
-You are a WHO epidemiology intelligence system.
+You are a Climate epidemiology intelligence system.
 
 Risk Score: {r['score']:.2f}/100
 Risk Level: {r['level']}
@@ -281,14 +306,17 @@ Provide:
             for chunk in response:
                 choice = getattr(chunk, "choices", None)
                 if not choice:
-                     continue
+                    continue
 
-                delta = choice[0].get("delta", {})
-                content = delta.get("content")
+                delta = getattr(choice[0], "delta", None)
+                if not delta:
+                    continue
+
+                content = getattr(delta, "content", None)
 
                 if content:
-                   output += content
-                   box.markdown(output)
+                    output += content
+                    box.markdown(output)
 
 # ==================================================
 # TAB 3
@@ -297,11 +325,52 @@ with tab3:
 
     st.subheader("📊 Epidemiological Analytics")
 
-    feature = st.selectbox("Select Feature", FEATURES)
+    col1, col2 = st.columns([1, 1])
 
-    fig, ax = plt.subplots()
-    ax.hist(np.random.normal(0, 1, 100))
-    st.pyplot(fig)
+    with col1:
+        feature = st.selectbox("Select Feature", FEATURES)
+
+        fig, ax = plt.subplots()
+        ax.hist(np.random.normal(0, 1, 100))
+        st.pyplot(fig)
+
+    with col2:
+        st.markdown("### Model Cluster Distribution")
+        
+        if df_train is not None and X_pca is not None:
+            try:
+                # Get cluster predictions from selected model
+                X_scaled = scaler.transform(df_train[FEATURES])
+                clusters = models[selected_model_name].predict(X_scaled)
+                
+                # Create cluster visualization
+                fig, ax = plt.subplots(figsize=(10, 6))
+                
+                n_clusters = len(np.unique(clusters))
+                colors = plt.cm.Set3(np.linspace(0, 1, n_clusters))
+                
+                for i in range(n_clusters):
+                    mask = clusters == i
+                    ax.scatter(
+                        X_pca[mask, 0],
+                        X_pca[mask, 1],
+                        label=f"{selected_model_name} {i}",
+                        alpha=0.6,
+                        s=50,
+                        color=colors[i]
+                    )
+                
+                ax.set_title(f"{selected_model_name} Clusters (PCA View)")
+                ax.set_xlabel("PC1")
+                ax.set_ylabel("PC2")
+                ax.legend()
+                ax.grid(True, alpha=0.3)
+                
+                st.pyplot(fig)
+            except Exception as e:
+                st.error(f"Could not generate cluster visualization: {e}")
+        else:
+            st.warning("Training data not available for visualization")
 
     st.markdown("### Model in Use")
     st.write(selected_model_name)
