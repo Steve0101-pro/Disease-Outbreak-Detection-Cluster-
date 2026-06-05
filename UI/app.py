@@ -279,9 +279,16 @@ Provide:
             box = st.empty()
 
             for chunk in response:
-                if chunk.choices[0].delta.content:
-                    output += chunk.choices[0].delta.content
-                    box.markdown(output)
+                choice = getattr(chunk, "choices", None)
+                if not choice:
+                     continue
+
+                delta = choice[0].get("delta", {})
+                content = delta.get("content")
+
+                if content:
+                   output += content
+                   box.markdown(output)
 
 # ==================================================
 # TAB 3
